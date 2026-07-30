@@ -43,10 +43,17 @@ model ConversationParticipant {
   id             String       @id @default(cuid())
   conversationId String
   userId         String
+  lastReadAt     DateTime     @default(now())
   conversation   Conversation @relation(fields: [conversationId], references: [id])
   user           User         @relation(fields: [userId], references: [id])
 
   @@unique([conversationId, userId])
+}
+
+model GroupChatRead {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  lastReadAt DateTime @default(now())
 }
 
 model DirectMessage {

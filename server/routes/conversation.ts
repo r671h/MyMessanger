@@ -29,16 +29,25 @@ router.get('/', requireAuth, async (req: AuthRequest, res: Response) => {
     });
 
     const shaped = conversations.map((conv) => {
+      const myParticipant = conv.participants.find((p) => p.userId === req.userId);
       const other = conv.participants.find((p) => p.userId !== req.userId)?.user;
+      const lastMessage = conv.messages[0] || null;
+
+      const unread =
+        !!lastMessage &&
+        myParticipant !== undefined &&
+        new Date(lastMessage.createdAt) > new Date(myParticipant.lastReadAt);
       return {
         id: conv.id,
         otherUser: other,
-        lastMessage: conv.messages[0] || null,
+        lastMessage,
+        unread,
       };
     });
 
     res.json(shaped);
   } catch (err) {
+    console.error('Error in GET /api/conversations:', err);
     res.status(500).json({ error: 'Something went wrong' });
   }
 });
@@ -95,6 +104,19 @@ router.get('/:id/messages', requireAuth, async (req: AuthRequest, res: Response)
   });
 
   res.json(messages);
+});
+
+router.post('/:id/read',requireAuth, async(req:AuthRequest,res:Response) => {
+  const conversationId = req.params.id as string;
+
+  await prisma.conversationParticipant.update({
+    where:{
+      conversationId_userId:{conversationId, userId: req.userId!}
+    },
+    data:{lastReadAt: new Date()}
+  });
+
+  res.json({success:true})
 });
 
 export default router;

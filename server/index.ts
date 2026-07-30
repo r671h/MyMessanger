@@ -13,7 +13,8 @@ import { parseCookie } from "cookie";
 import path from 'path';
 import userRoutes from './routes/users';
 import conversationRoutes from './routes/conversation';
-import uploadRoutes from './routes/uploads'
+import uploadRoutes from './routes/uploads';
+import groupchatRoutes from './routes/groupChat';
 
 const PORT = process.env.PORT || 4000;
 const app = express();
@@ -39,8 +40,9 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use("/api/auth", authRoutes);
 app.use("/api/messages", messagesRoutes);
 app.use('/api/users', userRoutes);
-app.use("/api/conversations", conversationRoutes)
-app.use("/api/upload",uploadRoutes)
+app.use("/api/conversations", conversationRoutes);
+app.use("/api/upload",uploadRoutes);
+app.use("/api/groupchat",groupchatRoutes);
 
 app.get("/api/health", (req: Request, res: Response) => {
     res.json({status: "ok"});
@@ -79,6 +81,7 @@ io.on("connection", async (socket)=> {
         select: {username: true}
     });
     socket.data.username = user?.username || "Someone";
+    socket.join(`user:${socket.userId}`);
 
     const currentCount =  onlineUsers.get(socket.userId!) || 0;
     onlineUsers.set(socket.userId!, currentCount + 1);
@@ -162,7 +165,16 @@ io.on("connection", async (socket)=> {
             }
         });
 
-        io.to(conversationId).emit("dm:new",message);
+        const participants = await prisma.conversationParticipant.findMany(
+            {
+                where:{conversationId},
+                select:{userId:true}
+            }
+        )
+
+        participants.forEach((p)=>{
+            io.to(`user:${p.userId}`).emit("dm:new",{...message, conversationId});
+        })
     });
 
     socket.on("disconnect",() => {

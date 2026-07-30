@@ -121,6 +121,9 @@ export default function ChatPage() {
         apiFetch('/api/auth/me')
             .then(setCurrentUser)
             .catch(() => router.push('/login'));
+
+        apiFetch(`/api/groupchat/read`,{method:"POST"});
+
         const socket = io('http://localhost:4000', {
             withCredentials: true //cookies are sent with the request
         });

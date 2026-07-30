@@ -98,6 +98,8 @@ export default function DMPage(){
 
         apiFetch(`/api/conversations/${conversationId}/messages`).then(setMessages);
 
+        apiFetch(`/api/conversations/${conversationId}/read`, {method:'POST'});
+
         const socket = io('http://localhost:4000', {withCredentials:true});
         socketRef.current = socket;
 

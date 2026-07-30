@@ -16,6 +16,7 @@ interface ConversationSummary {
   id: string;
   otherUser: UserSummary;
   lastMessage: { content: string; createdAt: string } | null;
+  unread: boolean;
 }
 
 function Avatar({ user,online }: {user: UserSummary,online:boolean}){
@@ -49,12 +50,16 @@ export default function MessagesPage(){
     const router = useRouter();
     const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
     const socketRef = useRef<Socket | null>(null);
+    const [groupUnread, setGroupUnread] = useState(false);
+    const [currentUser, setCurrentUser] = useState<{ id: string } | null>(null);
+    const currentUserIdRef = useRef<string | null>(null);
 
     useEffect(()=>{
         apiFetch('/api/conversations')
         .then(setConversations)
         .catch(()=>router.push("/login"))
         .finally(()=>setLoading(false))
+        apiFetch('/api/auth/me').then(setCurrentUser);
     }, [router]);
 
     useEffect(()=>{
@@ -71,7 +76,12 @@ export default function MessagesPage(){
         return () => clearTimeout(timeout);
     }, [searchQuery]);
 
+    useEffect(() => {
+        currentUserIdRef.current = currentUser?.id || null;
+    }, [currentUser]);
+
     useEffect(()=>{
+        apiFetch(`/api/groupchat/unread`).then((data) => setGroupUnread(data.unreadCount > 0))
         const socket = io('http://localhost:4000',{withCredentials:true})
         socketRef.current = socket;
         
@@ -85,6 +95,21 @@ export default function MessagesPage(){
                 if(online) next.add(userId);
                 else next.delete(userId);
                 return next;
+            });
+        });
+
+        socket.on('dm:new', (message: { conversationId: string; content: string; createdAt: string; sender: { id: string } }) => {
+            setConversations((prev) => {
+                const existing = prev.find((c) => c.id === message.conversationId);
+                if (!existing) return prev; // conversation not in our list yet (shouldn't normally happen)
+
+                const updated = {
+                ...existing,
+                lastMessage: { content: message.content, createdAt: message.createdAt },
+                unread: message.sender.id !== currentUserIdRef.current,
+                };
+
+                return [updated, ...prev.filter((c) => c.id !== message.conversationId)];
             });
         });
 
@@ -105,10 +130,11 @@ export default function MessagesPage(){
         <main className='flex flex-col h-screen bg-[#0E1621] text-[#E9EDF0]'>
             <header className='px-4 py-3 border-b bprder-black/30 shrink-0 bg-[#17212B]'>
                 <div className="flex items-center justify-between mb-3">
-                <h1 className="text-xl font-bold">Messages</h1>
-                <button onClick={() => router.push('/chat')} className="text-sm text-[#3390EC]">
-                    Group chat
-                </button>
+                    <h1 className="text-xl font-bold">Messages</h1>
+                    <button onClick={() => router.push('/chat')} className="text-sm text-[#3390EC] flex items-center gap-1.5">
+                        Group chat
+                        {groupUnread && <span className="w-2 h-2 rounded-full bg-[#3390EC]" />}
+                    </button>
                 </div>
                 <input
                 className="w-full bg-[#242F3D] rounded-full px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-[#3390EC]"
@@ -156,6 +182,7 @@ export default function MessagesPage(){
                                     {conv.lastMessage ? conv.lastMessage.content : 'No messages yet'}
                                 </p>
                             </div>
+                            {conv.unread && <span className="w-2.5 h-2.5 rounded-full bg-[#3390EC] shrink-0" />}
                         </button>
                     ))
                 )}
