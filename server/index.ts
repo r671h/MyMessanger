@@ -14,7 +14,7 @@ import path from 'path';
 import userRoutes from './routes/users';
 import conversationRoutes from './routes/conversation';
 import uploadRoutes from './routes/uploads';
-import groupchatRoutes from './routes/groupChat';
+import groupchatRoutes from './routes/groupchat';
 
 const PORT = process.env.PORT || 4000;
 const app = express();
@@ -76,12 +76,15 @@ io.use((socket, next) => {
 });
 
 io.on("connection", async (socket)=> {
-    const user = await prisma.user.findUnique({
-        where: {id: socket.userId},
-        select: {username: true}
-    });
-    socket.data.username = user?.username || "Someone";
+    
     socket.join(`user:${socket.userId}`);
+
+    prisma.user.findUnique({
+        where: { id: socket.userId },
+        select: { username: true },
+    }).then((user) => {
+        socket.data.username = user?.username || "Someone";
+    });
 
     const currentCount =  onlineUsers.get(socket.userId!) || 0;
     onlineUsers.set(socket.userId!, currentCount + 1);
@@ -137,6 +140,35 @@ io.on("connection", async (socket)=> {
     socket.on("conversation:leave",(conversationId:string)=>{
         socket.leave(conversationId);
     })
+
+    socket.on("conversation:read", async (conversationId:string) => {
+        const isParticipant = await prisma.conversationParticipant.findUnique({
+            where: {conversationId_userId:{conversationId,userId: socket.userId!}}
+        });
+        if(!isParticipant) return;
+
+        const now = new Date();
+
+        await prisma.conversationParticipant.update({
+            where:{conversationId_userId:{conversationId,userId:socket.userId!}},
+            data:{lastReadAt:now}
+        });
+
+        const participants = await prisma.conversationParticipant.findMany({
+            where:{conversationId},
+            select:{userId:true}
+        });
+
+        participants
+            .filter((p) => p.userId !== socket.userId)
+            .forEach((p) => {
+                io.to(`user:${p.userId}`).emit('conversation:read-update', {
+                    conversationId,
+                    readedId: socket.userId,
+                    readAt: now
+                });
+            });
+    });
 
     socket.on("dm:send",async (data : {conversationId:string,content?:string,fileName?:string,fileUrl?:string,fileType?:string,fileSize?:number})=>{
         const {conversationId,content,fileName,fileSize,fileType,fileUrl} = data

@@ -83,12 +83,15 @@ export default function DMPage(){
     const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const [typingUser, setTypingUser] = useState<Map<string,string>>(new Map());
     const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
+    const [otherLastReadAt, setOtherLastReadAt] = useState<string | null>(null);
 
 
     useEffect(()=>{
         apiFetch('/api/auth/me')
         .then(setCurrentUser)
         .catch(()=>router.push('/login'));
+
+        apiFetch(`/api/conversations/${conversationId}/read`, {method:'POST'});
 
         apiFetch('/api/conversations')
         .then((convs) => {
@@ -98,7 +101,9 @@ export default function DMPage(){
 
         apiFetch(`/api/conversations/${conversationId}/messages`).then(setMessages);
 
-        apiFetch(`/api/conversations/${conversationId}/read`, {method:'POST'});
+        apiFetch(`/api/conversations/${conversationId}/read-status`)
+        .then((data) => setOtherLastReadAt(data.otherLastReadAt))
+        .catch(()=>{});
 
         const socket = io('http://localhost:4000', {withCredentials:true});
         socketRef.current = socket;
@@ -107,6 +112,7 @@ export default function DMPage(){
 
         socket.on("dm:new",(message: DirectMessage) => {
             setMessages((prev) => [...prev,message]);
+            socket.emit('conversation:read',conversationId);
         });
 
         socket.on("typing:update", ({typing,userId,username} : {typing:boolean,userId:string,username:string}) => {
@@ -133,6 +139,15 @@ export default function DMPage(){
                 else next.delete(userId);
                 return next;
             });
+        });
+
+        socket.emit('conversation:read',conversationId);
+
+        socket.on('conversation:read-update', (data: { conversationId: string; readAt: string }) => {
+            console.log('read-update received:', data); // debug
+            if (data.conversationId === conversationId) {
+                setOtherLastReadAt(data.readAt);
+            }
         });
 
         return () => {
@@ -219,14 +234,23 @@ export default function DMPage(){
             <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-1">
                 {messages.map((msg) => {
                     const isOwn = msg.sender.id === currentUser?.id;
+                    const isRead = isOwn && otherLastReadAt && new Date(msg.createdAt) <= new Date(otherLastReadAt);
+
                     return(
                         <div key={msg.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mt-0.5`}>
                             <div className={`max-w-[65%] px-3 py-2 rounded-2xl text-sm leading-snug ${
                     isOwn ? 'bg-[#2B5278] rounded-br-md' : 'bg-[#182533] rounded-bl-md'
                     }`}>
-                            <AttachmentView msg={msg}/>
-                            <p className="wrap-break-words">{msg.content}</p>
-                            <p className="text-[10px] text-[#8FA3AD] text-right mt-1">{formatTime(msg.createdAt)}</p>
+                                <AttachmentView msg={msg}/>
+                                <p className="wrap-break-words">{msg.content}</p>
+                                <p className="text-[10px] text-[#8FA3AD] text-right mt-1">
+                                    {formatTime(msg.createdAt)}
+                                    {isOwn && (
+                                        <span className={isRead ? 'text-[#3390EC]' : 'text-[#8FA3AD]'}>
+                                        {isRead ? '✓✓' : '✓'}
+                                        </span>
+                                    )}
+                                </p>
                             </div>
                         </div>
                     )

@@ -119,4 +119,22 @@ router.post('/:id/read',requireAuth, async(req:AuthRequest,res:Response) => {
   res.json({success:true})
 });
 
+router.get('/:id/read-status',requireAuth, async(req:AuthRequest,res:Response) => {
+  const conversationId = req.params.id as string;
+
+  const otherParticipant = await prisma.conversationParticipant.findFirst({
+    where: {
+      conversationId,
+      userId: { not:req.userId }
+    },
+    select: {lastReadAt: true}
+  });
+
+  if(!otherParticipant){
+    return res.status(404).json({error: 'Conversation not found'});
+  }
+
+  res.json({otherLastReadAt:otherParticipant.lastReadAt})
+})
+
 export default router;
