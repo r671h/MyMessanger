@@ -134,32 +134,34 @@ io.on("connection", async (socket)=> {
     });
 
     socket.on("groupchat:read", async (groupChatId: string) => {
-        const isMember = await prisma.groupChatParticipant.findUnique({
-            where: { groupChatId_userId: { groupChatId, userId: socket.userId! } },
-        });
-        if (!isMember) return;
-        const now = new Date();
+        try {
+            if (!groupChatId) return; // guard against missing/malformed calls
 
-        await prisma.groupChatParticipant.update({
+            const isMember = await prisma.groupChatParticipant.findUnique({
+            where: { groupChatId_userId: { groupChatId, userId: socket.userId! } },
+            });
+            if (!isMember) return;
+
+            const now = new Date();
+            await prisma.groupChatParticipant.update({
             where: { groupChatId_userId: { groupChatId, userId: socket.userId! } },
             data: { lastReadAt: now },
-        });
+            });
 
-        const participants = await prisma.groupChatParticipant.findMany({
+            const members = await prisma.groupChatParticipant.findMany({
             where: { groupChatId },
             select: { userId: true },
-        });
-
-        participants
-            .filter((p) => p.userId !== socket.userId)
-            .forEach((p) => {
-                io.to(`user:${p.userId}`).emit('groupchat:read-update', {
-                    groupChatId,
-                    userId: socket.userId,
-                    readAt: now,
-                })
             });
-});
+
+            members
+            .filter((m) => m.userId !== socket.userId)
+            .forEach((m) => {
+                io.to(`user:${m.userId}`).emit("groupchat:read-update", { groupChatId, userId: socket.userId, readAt: now });
+            });
+        } catch (err) {
+            console.error("Error in groupchat:read handler:", err);
+        }
+        });
 
     socket.on("conversation:join",async (conversationId:string)=>{
         const isParticipant = await prisma.conversationParticipant.findUnique({
@@ -210,7 +212,9 @@ io.on("connection", async (socket)=> {
 
     socket.on("dm:send",async (data : {conversationId:string,content?:string,fileName?:string,fileUrl?:string,fileType?:string,fileSize?:number})=>{
         const {conversationId,content,fileName,fileSize,fileType,fileUrl} = data
-        if(!content?.trim() && fileUrl) return;
+        if(!content?.trim() && !fileUrl) {
+            return;
+        }
 
         const isParticipant = await prisma.conversationParticipant.findUnique({
             where:{
