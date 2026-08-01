@@ -111,6 +111,7 @@ export default function ChatPage() {
     const [uploading,setUploading] = useState(false);
     const [pendingFile,setPendingFile] = useState<Attachment | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
+    const [readStatus, setReadStatus] = useState<Map<string, string>>(new Map()); 
 
     useEffect(()=>{
         //Load messahe history
@@ -122,7 +123,10 @@ export default function ChatPage() {
             .then(setCurrentUser)
             .catch(() => router.push('/login'));
 
-        apiFetch(`/api/groupchat/read`,{method:"POST"});
+        apiFetch(`/api/groupchat/read-status`)
+            .then((data: {userId: string, lastReadAt:string}[]) => {
+                setReadStatus(new Map(data.map(item => [item.userId, item.lastReadAt])));
+            });
 
         const socket = io('http://localhost:4000', {
             withCredentials: true //cookies are sent with the request
@@ -133,11 +137,16 @@ export default function ChatPage() {
         socket.on('disconnect', ()=> setConnected(false));
 
         socket.on('message:new', (message: Message) => {
-            console.log('New message received:', message); // debug
             setMessages((prev) => [ ...prev, message ]);
+            socket.emit('groupchat:read');
         });
         socket.on('connect_error', (err) => {
             console.error('Socket connection error:', err.message);
+        });
+        socket.emit('groupchat:read');
+
+        socket.on("groupchat:read-update",({userId,lastReadAt}:{userId:string,lastReadAt:string}) => {
+            setReadStatus(prev => new Map(prev).set(userId, lastReadAt));
         });
 
         socket.on("typing:update", ({userId,username,typing} : {userId: string, username:string, typing:boolean}) => {
@@ -213,6 +222,16 @@ export default function ChatPage() {
             setUploading(false);
             e.target.value = ''
         }
+    }
+
+    function getSeenCount(messageCreatedAt: string, authorId:string, readStatus: Map<string,string>) : number {
+        let count = 0;
+        readStatus.forEach((lastReadAt, userId) => {
+            if(userId !== authorId && new Date(lastReadAt) >= new Date(messageCreatedAt)) {
+                count++;
+            }
+        });
+        return count;
     }
 
     return(
@@ -299,7 +318,14 @@ export default function ChatPage() {
                         <AttachmentView msg={msg}/>
                         <p className="wrap-break-words">{msg.content}</p>
                         <p className="text-[10px] text-[#8FA3AD] text-right mt-1">
-                        {formatTime(msg.createdAt)}
+                            {formatTime(msg.createdAt)}
+                            {isOwn && (
+                                <span className="ml-1">
+                                {getSeenCount(msg.createdAt, msg.author.id, readStatus) > 0
+                                    ? `· Seen by ${getSeenCount(msg.createdAt, msg.author.id, readStatus)}`
+                                    : '· Sent'}
+                                </span>
+                            )}
                         </p>
                     </div>
                     </div>

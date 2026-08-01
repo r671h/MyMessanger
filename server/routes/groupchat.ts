@@ -28,4 +28,12 @@ router.get('/unread',requireAuth,async (req:AuthRequest,res:Response) => {
     res.json({unreadCount});
 });
 
+router.get('/lastRead',requireAuth,async (req:AuthRequest,res:Response) => {
+    const allReads = await prisma.groupChatRead.findMany({
+        select: {userId:true,lastReadAt:true}
+    });
+
+    res.json(allReads);
+})
+
 export default router;

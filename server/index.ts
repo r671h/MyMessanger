@@ -209,6 +209,22 @@ io.on("connection", async (socket)=> {
         })
     });
 
+
+    socket.on("groupchat:read", async () => {
+        const now = new Date();
+
+        await prisma.groupChatRead.upsert({
+            where: {userId: socket.userId!},
+            update: {lastReadAt: now},
+            create: {userId: socket.userId!, lastReadAt: now}
+        });
+
+        socket.broadcast.emit("groupchat:read-update", {
+            userId: socket.userId,
+            lastReadAt: now
+        });
+    })
+
     socket.on("disconnect",() => {
         console.log("User disconnected: " + socket.data.username);
     
