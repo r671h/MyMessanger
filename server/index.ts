@@ -8,13 +8,12 @@ import {Server} from "socket.io";
 import { createServer } from "http";
 import jwt from "jsonwebtoken";
 import { prisma } from "./prismaClient";
-import messagesRoutes from './routes/messages';
 import { parseCookie } from "cookie";
 import path from 'path';
 import userRoutes from './routes/users';
 import conversationRoutes from './routes/conversation';
 import uploadRoutes from './routes/uploads';
-import groupchatRoutes from './routes/groupchat';
+import groupChatRoutes from './routes/groupchats';
 
 const PORT = process.env.PORT || 4000;
 const app = express();
@@ -38,11 +37,10 @@ app.use(cookieParser());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.use("/api/auth", authRoutes);
-app.use("/api/messages", messagesRoutes);
 app.use('/api/users', userRoutes);
 app.use("/api/conversations", conversationRoutes);
 app.use("/api/upload",uploadRoutes);
-app.use("/api/groupchat",groupchatRoutes);
+app.use("/api/groupchats", groupChatRoutes);
 
 app.get("/api/health", (req: Request, res: Response) => {
     res.json({status: "ok"});
@@ -102,26 +100,66 @@ io.on("connection", async (socket)=> {
         socket.broadcast.emit("typing:update", {userId: socket.userId, typing:false})
     });
 
-    socket.on("message:send", async (data: {content?: string, fileType?:string, fileName?:string, fileSize?:number,fileUrl?:string})=> {
-        const {content,fileName,fileSize,fileType,fileUrl} = data;
-        if (!content?.trim() && !fileUrl) return;
-
-        const message = await prisma.message.create({
-            data:{
-                content,
-                fileName,
-                fileUrl,
-                fileSize,
-                fileType,
-                authorId: socket.userId!,
-            },
-            include: {
-                author: { select: {id: true, username:true,avatarUrl:true}}
+    socket.on("groupchat:send",async (data : {groupId:string,content?:string,fileName?:string,fileUrl?:string,fileType?:string,fileSize?:number})=>{
+        const {groupId,content,fileName,fileSize,fileType,fileUrl} = data
+        if(!content?.trim() && !fileUrl) return;
+        
+        const isParticipant = await prisma.groupChatParticipant.findUnique({
+            where:{
+                groupChatId_userId:{groupChatId:groupId,userId:socket.userId!}
             }
         });
+        if(!isParticipant) return;
 
-        io.emit("message:new", message);
+        const message = await prisma.groupMessage.create({
+            data: {
+            content: content || null,
+            fileUrl, fileName, fileType, fileSize,
+            groupChatId: groupId,
+            senderId: socket.userId!,
+            },
+            include: {
+            sender: { select: { id: true, username: true, avatarUrl: true } },
+            },
+        });
+
+        const participants = await prisma.groupChatParticipant.findMany({
+            where: {groupChatId: groupId},
+            select: {userId:true}
+        });
+
+        participants.forEach((p) => {
+            io.to(`user:${p.userId}`).emit("groupchat:new",message);
+        });
     });
+
+    socket.on("groupchat:read", async (groupChatId: string) => {
+        const isMember = await prisma.groupChatParticipant.findUnique({
+            where: { groupChatId_userId: { groupChatId, userId: socket.userId! } },
+        });
+        if (!isMember) return;
+        const now = new Date();
+
+        await prisma.groupChatParticipant.update({
+            where: { groupChatId_userId: { groupChatId, userId: socket.userId! } },
+            data: { lastReadAt: now },
+        });
+
+        const participants = await prisma.groupChatParticipant.findMany({
+            where: { groupChatId },
+            select: { userId: true },
+        });
+
+        participants
+            .filter((p) => p.userId !== socket.userId)
+            .forEach((p) => {
+                io.to(`user:${p.userId}`).emit('groupchat:read-update', {
+                    groupChatId,
+                    userId: socket.userId,
+                    readAt: now,
+                })
+            });
+});
 
     socket.on("conversation:join",async (conversationId:string)=>{
         const isParticipant = await prisma.conversationParticipant.findUnique({
@@ -208,22 +246,6 @@ io.on("connection", async (socket)=> {
             io.to(`user:${p.userId}`).emit("dm:new",{...message, conversationId});
         })
     });
-
-
-    socket.on("groupchat:read", async () => {
-        const now = new Date();
-
-        await prisma.groupChatRead.upsert({
-            where: {userId: socket.userId!},
-            update: {lastReadAt: now},
-            create: {userId: socket.userId!, lastReadAt: now}
-        });
-
-        socket.broadcast.emit("groupchat:read-update", {
-            userId: socket.userId,
-            lastReadAt: now
-        });
-    })
 
     socket.on("disconnect",() => {
         console.log("User disconnected: " + socket.data.username);

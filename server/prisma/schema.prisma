@@ -15,21 +15,10 @@ model User {
   bio                      String?
   avatarUrl                String?
   createdAt                DateTime                  @default(now())
-  messages                 Message[]
   conversationParticipants ConversationParticipant[]
   directMessages           DirectMessage[]
-}
-
-model Message {
-  id        String    @id @default(cuid())
-  content   String?
-  fileUrl   String?
-  fileName  String?
-  fileType  String?
-  fileSize  Int?
-  createdAt DateTime  @default(now())
-  author    User      @relation(fields: [authorId], references: [id])
-  authorId  String
+  groupChatParticipants    GroupChatParticipant[]
+  groupMessages             GroupMessage[]
 }
 
 model Conversation {
@@ -50,12 +39,6 @@ model ConversationParticipant {
   @@unique([conversationId, userId])
 }
 
-model GroupChatRead {
-  id         String   @id @default(cuid())
-  userId     String   @unique
-  lastReadAt DateTime @default(now())
-}
-
 model DirectMessage {
   id             String       @id @default(cuid())
   content        String?
@@ -68,4 +51,39 @@ model DirectMessage {
   conversation   Conversation @relation(fields: [conversationId], references: [id])
   senderId       String
   sender         User         @relation(fields: [senderId], references: [id])
+}
+
+model GroupChat {
+  id             String       @id @default(cuid())
+  name           String       
+  avatarUrl      String?
+  createdAt      DateTime     @default(now())
+  createdById    String
+  participants   GroupChatParticipant[]
+  messages       GroupMessage[]
+}
+
+model GroupChatParticipant {
+  id             String        @id @default(cuid())
+  groupChatId    String
+  userId         String
+  lastReadAt     DateTime      @default(now())
+  groupChat      GroupChat     @relation(fields:[groupChatId],references:[id])
+  user           User          @relation(fields:[userId],references:[id])
+
+  @@unique([groupChatId,userId])
+}
+
+model GroupMessage {
+  id             String    @id @default(cuid())
+  content        String?
+  fileUrl        String?
+  fileName       String?
+  fileType       String?
+  fileSize       Int?
+  createdAt      DateTime  @default(now())
+  groupChatId    String
+  groupChat      GroupChat @relation(fields: [groupChatId], references: [id])
+  senderId       String
+  sender         User      @relation(fields: [senderId], references: [id])
 }
