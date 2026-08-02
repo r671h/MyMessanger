@@ -26,14 +26,14 @@ const upload = multer({
 
 //create group chat
 router.post('/',requireAuth, upload.single('avatar'),async (req: AuthRequest,res:Response) => {
-    const {name,membersIds} = req.body;
-    const parsedMembersIds = membersIds ? JSON.parse(membersIds) : [];
+    const { name, memberIds } = req.body;
+    const parsedMemberIds = memberIds ? JSON.parse(memberIds) : [];
 
     if(!name?.trim()) return res.status(400).json({error: "Group name is required"});
 
     const avatarUrl = req.file ? `/uploads/${req.file.filename}` : null;
 
-    const allMembersIds = Array.from(new Set([req.userId!, ...parsedMembersIds]));
+    const allMemberIds = Array.from(new Set([req.userId!, ...parsedMemberIds]));
 
     const group = await prisma.groupChat.create({
         data: {
@@ -42,7 +42,7 @@ router.post('/',requireAuth, upload.single('avatar'),async (req: AuthRequest,res
             createdById: req.userId!,
             createdAt: new Date(),
             participants: {
-                create: allMembersIds.map((userId) => ({userId}))
+                create: allMemberIds.map((userId) => ({userId}))
             }
         }
     })
