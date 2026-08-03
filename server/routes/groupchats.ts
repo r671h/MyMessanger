@@ -90,7 +90,6 @@ router.get('/', requireAuth, async (req: AuthRequest, res: Response) => {
   }
 });
 
-// GET one group's info + verify membership
 router.get('/:id', requireAuth, async (req: AuthRequest, res: Response) => {
   const groupId = req.params.id as string;
 
@@ -123,7 +122,10 @@ router.get('/:id/messages', requireAuth, async (req: AuthRequest, res: Response)
   const messages = await prisma.groupMessage.findMany({
     where: { groupChatId: groupId },
     orderBy: { createdAt: 'asc' },
-    include: { sender: { select: { id: true, username: true, avatarUrl: true } } },
+    include: {
+      sender: { select: { id: true, username: true, avatarUrl: true } },
+      reactions: true,
+    },
   });
 
   res.json(messages);

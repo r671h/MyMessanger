@@ -14,6 +14,12 @@ export interface Attachment {
     fileSize: number;
 }
 
+export interface Reaction {
+  id: string;
+  emoji: string;
+  userId: string;
+}
+
 export interface ChatMessage {
   id: string;
   content: string | null;
@@ -25,5 +31,6 @@ export interface ChatMessage {
   fileType?: string | null;
   fileSize?: number | null;
   sender: User;
+  reactions?: Reaction[];
 }
 

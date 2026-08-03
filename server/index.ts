@@ -119,6 +119,7 @@ io.on("connection", async (socket)=> {
             },
             include: {
                 sender: { select: { id: true, username: true, avatarUrl: true } },
+                reactions: true,
             },
             });
 
@@ -237,7 +238,8 @@ io.on("connection", async (socket)=> {
                 senderId: socket.userId!
             },
             include:{
-                sender:{select:{id:true,username:true,avatarUrl:true}}
+                sender:{select:{id:true,username:true,avatarUrl:true}},
+                reactions: true,
             }
         });
 
@@ -346,6 +348,68 @@ io.on("connection", async (socket)=> {
             });
         } catch (err) {
             console.error("Error in groupchat:delete handler:", err);
+        }
+    });
+
+    socket.on("dm:react", async ({ messageId, emoji }: { messageId: string; emoji: string }) => {
+        try {
+            const message = await prisma.directMessage.findUnique({ where: { id: messageId } });
+            if (!message) return;
+
+            const existing = await prisma.directMessageReaction.findUnique({
+            where: { messageId_userId_emoji: { messageId, userId: socket.userId!, emoji } },
+            });
+
+            if (existing) {
+            await prisma.directMessageReaction.delete({ where: { id: existing.id } });
+            } else {
+            await prisma.directMessageReaction.create({
+                data: { messageId, userId: socket.userId!, emoji },
+            });
+            }
+
+            const reactions = await prisma.directMessageReaction.findMany({ where: { messageId } });
+
+            const participants = await prisma.conversationParticipant.findMany({
+            where: { conversationId: message.conversationId },
+            select: { userId: true },
+            });
+            participants.forEach((p) => {
+            io.to(`user:${p.userId}`).emit("dm:reactions-updated", { messageId, reactions });
+            });
+        } catch (err) {
+            console.error("Error in dm:react handler:", err);
+        }
+        });
+
+        socket.on("groupchat:react", async ({ messageId, emoji }: { messageId: string; emoji: string }) => {
+        try {
+            const message = await prisma.groupMessage.findUnique({ where: { id: messageId } });
+            if (!message) return;
+
+            const existing = await prisma.groupMessageReaction.findUnique({
+            where: { messageId_userId_emoji: { messageId, userId: socket.userId!, emoji } },
+            });
+
+            if (existing) {
+            await prisma.groupMessageReaction.delete({ where: { id: existing.id } });
+            } else {
+            await prisma.groupMessageReaction.create({
+                data: { messageId, userId: socket.userId!, emoji },
+            });
+            }
+
+            const reactions = await prisma.groupMessageReaction.findMany({ where: { messageId } });
+
+            const members = await prisma.groupChatParticipant.findMany({
+            where: { groupChatId: message.groupChatId },
+            select: { userId: true },
+            });
+            members.forEach((m) => {
+            io.to(`user:${m.userId}`).emit("groupchat:reactions-updated", { messageId, reactions });
+            });
+        } catch (err) {
+            console.error("Error in groupchat:react handler:", err);
         }
         });
 

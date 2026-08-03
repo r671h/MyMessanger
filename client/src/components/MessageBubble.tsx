@@ -6,6 +6,7 @@ import { colorForName } from '../lib/avatarColors';
 import AttachmentView from './AttachmentView';
 import Avatar from './Avatar';
 import type { ChatMessage } from '../types/chat';
+import ReactionBar from './ReactionBar';
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -16,11 +17,13 @@ interface MessageBubbleProps {
   isOwn: boolean;
   showAvatarAndName: boolean;
   receipt?: React.ReactNode;
+  currentUserId?: string;
   onEdit?: (messageId: string, newContent: string) => void;
   onDelete?: (messageId: string) => void;
+  onReact?: (messageId: string, emoji: string) => void;
 }
 
-export default function MessageBubble({ msg, isOwn, showAvatarAndName, receipt, onEdit, onDelete }: MessageBubbleProps) {
+export default function MessageBubble({ msg, isOwn, showAvatarAndName, receipt, currentUserId, onEdit, onDelete, onReact }: MessageBubbleProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(msg.content || '');
 
@@ -90,11 +93,18 @@ export default function MessageBubble({ msg, isOwn, showAvatarAndName, receipt, 
         )}
 
         {!isEditing && (
-          <p className="text-[10px] text-[#8FA3AD] text-right mt-1 flex items-center justify-end gap-1">
+          <div className="text-[10px] text-[#8FA3AD] text-right mt-1 flex items-center justify-end gap-1">
             {msg.editedAt && !isDeleted && <span className="italic">edited</span>}
             {formatTime(msg.createdAt)}
+            {!isEditing && !isDeleted && currentUserId && onReact && (
+              <ReactionBar
+                reactions={msg.reactions || []}
+                currentUserId={currentUserId}
+                onReact={(emoji) => onReact(msg.id, emoji)}
+              />
+            )}
             {!isDeleted && receipt}
-          </p>
+          </div>
         )}
       </div>
     </div>

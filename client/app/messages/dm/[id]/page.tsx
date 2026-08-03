@@ -78,6 +78,10 @@ export default function DMPage() {
       setMessages((prev) => prev.map((m) => (m.id === updatedMessage.id ? updatedMessage : m)));
     });
 
+    socket.on('dm:reactions-updated', ({ messageId, reactions }: { messageId: string; reactions: any[] }) => {
+      setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, reactions } : m)));
+    });
+
     return () => {
       socket.emit('conversation:leave', conversationId);
       socket.disconnect();
@@ -103,6 +107,10 @@ export default function DMPage() {
   function handleDelete(messageId: string) {
     if (!confirm('Delete this message?')) return;
     socketRef.current?.emit('dm:delete', { messageId });
+  }
+
+  function handleReact(messageId: string, emoji: string) {
+    socketRef.current?.emit('dm:react', { messageId, emoji });
   }
 
   return (
@@ -135,8 +143,10 @@ export default function DMPage() {
                   <span className={isRead ? 'text-[#3390EC]' : 'text-[#8FA3AD]'}>{isRead ? '✓✓' : '✓'}</span>
                 ) : undefined
               }
+              currentUserId={currentUser?.id}
               onEdit={handleEdit}
               onDelete={handleDelete}
+              onReact={handleReact}
             />
           );
         })}

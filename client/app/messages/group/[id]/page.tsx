@@ -73,6 +73,10 @@ export default function GroupChatPage() {
       setMessages((prev) => prev.map((m) => (m.id === updatedMessage.id ? updatedMessage : m)));
     });
 
+    socket.on('groupchat:reactions-updated', ({ messageId, reactions }: { messageId: string; reactions: any[] }) => {
+      setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, reactions } : m)));
+    });
+
     return () => {
       socket.disconnect();
     };
@@ -107,6 +111,10 @@ export default function GroupChatPage() {
     socketRef.current?.emit('groupchat:delete', { messageId });
   }
 
+  function handleReact(messageId: string, emoji: string) {
+    socketRef.current?.emit('groupchat:react', { messageId, emoji });
+  }
+
   return (
     <main className="flex flex-col h-full bg-[#0E1621] text-[#E9EDF0]">
       <header className="flex items-center gap-3 px-4 py-3 bg-[#17212B] border-b border-black/30 shrink-0">
@@ -131,8 +139,10 @@ export default function GroupChatPage() {
               isOwn={isOwn}
               showAvatarAndName={showAvatarAndName}
               receipt={isOwn ? <span>· {seenCount > 0 ? `Seen by ${seenCount}` : 'Sent'}</span> : undefined}
+              currentUserId={currentUser?.id}
               onEdit={handleEdit}
               onDelete={handleDelete}
+              onReact={handleReact}
             />
           );
         })}

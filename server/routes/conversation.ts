@@ -100,6 +100,7 @@ router.get('/:id/messages', requireAuth, async (req: AuthRequest, res: Response)
     orderBy: { createdAt: 'asc' },
     include: {
       sender: { select: { id: true, username: true, avatarUrl: true } },
+      reactions: true,
     },
   });
 

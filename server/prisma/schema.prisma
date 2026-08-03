@@ -53,6 +53,7 @@ model DirectMessage {
   conversation   Conversation @relation(fields: [conversationId], references: [id])
   senderId       String
   sender         User         @relation(fields: [senderId], references: [id])
+  reactions      DirectMessageReaction[]
 }
 
 model GroupChat {
@@ -90,4 +91,27 @@ model GroupMessage {
   groupChat   GroupChat @relation(fields: [groupChatId], references: [id])
   senderId    String
   sender      User      @relation(fields: [senderId], references: [id])
+  reactions   GroupMessageReaction[]
+}
+
+model DirectMessageReaction {
+  id        String        @id @default(cuid())
+  emoji     String
+  userId    String
+  messageId String
+  message   DirectMessage @relation(fields: [messageId], references: [id])
+  createdAt DateTime      @default(now())
+
+  @@unique([messageId, userId, emoji])
+}
+
+model GroupMessageReaction {
+  id        String       @id @default(cuid())
+  emoji     String
+  userId    String
+  messageId String
+  message   GroupMessage @relation(fields: [messageId], references: [id])
+  createdAt DateTime     @default(now())
+
+  @@unique([messageId, userId, emoji])
 }
