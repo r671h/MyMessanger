@@ -253,6 +253,102 @@ io.on("connection", async (socket)=> {
         })
     });
 
+    socket.on("dm:edit", async ({ messageId, content }: { messageId: string; content: string }) => {
+        try {
+            if (!content?.trim()) return;
+
+            const message = await prisma.directMessage.findUnique({ where: { id: messageId } });
+            if (!message || message.senderId !== socket.userId) return; // only the sender can edit
+
+            const updated = await prisma.directMessage.update({
+            where: { id: messageId },
+            data: { content, editedAt: new Date() },
+            include: { sender: { select: { id: true, username: true, avatarUrl: true } } },
+            });
+
+            const participants = await prisma.conversationParticipant.findMany({
+                where: { conversationId: message.conversationId },
+                select: { userId: true },
+                });
+                participants.forEach((p) => {
+                io.to(`user:${p.userId}`).emit("dm:updated", { ...updated, conversationId: message.conversationId });
+            });
+        } catch (err) {
+            console.error("Error in dm:edit handler:", err);
+        }
+        });
+
+        socket.on("dm:delete", async ({ messageId }: { messageId: string }) => {
+        try {
+            const message = await prisma.directMessage.findUnique({ where: { id: messageId } });
+            if (!message || message.senderId !== socket.userId) return;
+
+            const updated = await prisma.directMessage.update({
+            where: { id: messageId },
+            data: { content: null, fileUrl: null, fileName: null, fileType: null, fileSize: null, deletedAt: new Date() },
+            include: { sender: { select: { id: true, username: true, avatarUrl: true } } },
+            });
+
+            const participants = await prisma.conversationParticipant.findMany({
+            where: { conversationId: message.conversationId },
+            select: { userId: true },
+            });
+            participants.forEach((p) => {
+            io.to(`user:${p.userId}`).emit("dm:updated", { ...updated, conversationId: message.conversationId });
+            });
+        } catch (err) {
+            console.error("Error in dm:delete handler:", err);
+        }
+        });
+
+        socket.on("groupchat:edit", async ({ messageId, content }: { messageId: string; content: string }) => {
+        try {
+            if (!content?.trim()) return;
+
+            const message = await prisma.groupMessage.findUnique({ where: { id: messageId } });
+            if (!message || message.senderId !== socket.userId) return;
+
+            const updated = await prisma.groupMessage.update({
+            where: { id: messageId },
+            data: { content, editedAt: new Date() },
+            include: { sender: { select: { id: true, username: true, avatarUrl: true } } },
+            });
+
+            const members = await prisma.groupChatParticipant.findMany({
+            where: { groupChatId: message.groupChatId },
+            select: { userId: true },
+            });
+            members.forEach((m) => {
+            io.to(`user:${m.userId}`).emit("groupchat:updated", { ...updated, groupChatId: message.groupChatId });
+            });
+        } catch (err) {
+            console.error("Error in groupchat:edit handler:", err);
+        }
+        });
+
+        socket.on("groupchat:delete", async ({ messageId }: { messageId: string }) => {
+        try {
+            const message = await prisma.groupMessage.findUnique({ where: { id: messageId } });
+            if (!message || message.senderId !== socket.userId) return;
+
+            const updated = await prisma.groupMessage.update({
+            where: { id: messageId },
+            data: { content: null, fileUrl: null, fileName: null, fileType: null, fileSize: null, deletedAt: new Date() },
+            include: { sender: { select: { id: true, username: true, avatarUrl: true } } },
+            });
+
+            const members = await prisma.groupChatParticipant.findMany({
+            where: { groupChatId: message.groupChatId },
+            select: { userId: true },
+            });
+            members.forEach((m) => {
+            io.to(`user:${m.userId}`).emit("groupchat:updated", { ...updated, groupChatId: message.groupChatId });
+            });
+        } catch (err) {
+            console.error("Error in groupchat:delete handler:", err);
+        }
+        });
+
     socket.on("disconnect",() => {
         console.log("User disconnected: " + socket.data.username);
     

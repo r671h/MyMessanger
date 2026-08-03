@@ -69,6 +69,10 @@ export default function GroupChatPage() {
       });
     });
 
+    socket.on('groupchat:updated', (updatedMessage: ChatMessage) => {
+      setMessages((prev) => prev.map((m) => (m.id === updatedMessage.id ? updatedMessage : m)));
+    });
+
     return () => {
       socket.disconnect();
     };
@@ -92,6 +96,15 @@ export default function GroupChatPage() {
       content,
       ...attachment,
     });
+  }
+
+  function handleEdit(messageId: string, content: string) {
+    socketRef.current?.emit('groupchat:edit', { messageId, content });
+  }
+
+  function handleDelete(messageId: string) {
+    if (!confirm('Delete this message?')) return;
+    socketRef.current?.emit('groupchat:delete', { messageId });
   }
 
   return (
@@ -118,6 +131,8 @@ export default function GroupChatPage() {
               isOwn={isOwn}
               showAvatarAndName={showAvatarAndName}
               receipt={isOwn ? <span>· {seenCount > 0 ? `Seen by ${seenCount}` : 'Sent'}</span> : undefined}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
             />
           );
         })}

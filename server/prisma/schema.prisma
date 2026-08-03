@@ -44,9 +44,11 @@ model DirectMessage {
   content        String?
   fileUrl        String?
   fileName       String?
-  fileSize       Int?
   fileType       String?
+  fileSize       Int?
   createdAt      DateTime     @default(now())
+  editedAt       DateTime?
+  deletedAt      DateTime?
   conversationId String
   conversation   Conversation @relation(fields: [conversationId], references: [id])
   senderId       String
@@ -75,15 +77,17 @@ model GroupChatParticipant {
 }
 
 model GroupMessage {
-  id             String    @id @default(cuid())
-  content        String?
-  fileUrl        String?
-  fileName       String?
-  fileType       String?
-  fileSize       Int?
-  createdAt      DateTime  @default(now())
-  groupChatId    String
-  groupChat      GroupChat @relation(fields: [groupChatId], references: [id])
-  senderId       String
-  sender         User      @relation(fields: [senderId], references: [id])
+  id          String    @id @default(cuid())
+  content     String?
+  fileUrl     String?
+  fileName    String?
+  fileType    String?
+  fileSize    Int?
+  createdAt   DateTime  @default(now())
+  editedAt    DateTime?
+  deletedAt   DateTime?
+  groupChatId String
+  groupChat   GroupChat @relation(fields: [groupChatId], references: [id])
+  senderId    String
+  sender      User      @relation(fields: [senderId], references: [id])
 }

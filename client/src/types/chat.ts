@@ -15,12 +15,15 @@ export interface Attachment {
 }
 
 export interface ChatMessage {
-    id: string;
-    content: string | null;
-    createdAt: string;
-    fileUrl?: string | null;
-    fileName?: string | null;
-    fileType?: string | null;
-    fileSize?: number;
-    sender: User;
+  id: string;
+  content: string | null;
+  createdAt: string;
+  editedAt?: string | null;
+  deletedAt?: string | null;
+  fileUrl?: string | null;
+  fileName?: string | null;
+  fileType?: string | null;
+  fileSize?: number | null;
+  sender: User;
 }
+

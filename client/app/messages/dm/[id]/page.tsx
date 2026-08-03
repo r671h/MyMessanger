@@ -74,6 +74,10 @@ export default function DMPage() {
       }
     });
 
+    socket.on('dm:updated', (updatedMessage: ChatMessage) => {
+      setMessages((prev) => prev.map((m) => (m.id === updatedMessage.id ? updatedMessage : m)));
+    });
+
     return () => {
       socket.emit('conversation:leave', conversationId);
       socket.disconnect();
@@ -90,6 +94,15 @@ export default function DMPage() {
       content,
       ...attachment,
     });
+  }
+
+  function handleEdit(messageId: string, content: string) {
+    socketRef.current?.emit('dm:edit', { messageId, content });
+  }
+
+  function handleDelete(messageId: string) {
+    if (!confirm('Delete this message?')) return;
+    socketRef.current?.emit('dm:delete', { messageId });
   }
 
   return (
@@ -122,6 +135,8 @@ export default function DMPage() {
                   <span className={isRead ? 'text-[#3390EC]' : 'text-[#8FA3AD]'}>{isRead ? '✓✓' : '✓'}</span>
                 ) : undefined
               }
+              onEdit={handleEdit}
+              onDelete={handleDelete}
             />
           );
         })}
