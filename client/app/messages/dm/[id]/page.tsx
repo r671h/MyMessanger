@@ -9,6 +9,7 @@ import MessageBubble from '../../../../src/components/MessageBubble';
 import TypingDots from '../../../../src/components/TypingDots';
 import ChatInput from '../../../../src/components/ChatInput';
 import type { User, ChatMessage, Attachment } from '../../../../src/types/chat';
+import { MoreVertical, Trash2 } from 'lucide-react';
 
 export default function DMPage() {
   const params = useParams();
@@ -21,6 +22,7 @@ export default function DMPage() {
   const [isOtherTyping, setIsOtherTyping] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
   const [otherLastReadAt, setOtherLastReadAt] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const socketRef = useRef<Socket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -113,16 +115,37 @@ export default function DMPage() {
     socketRef.current?.emit('dm:react', { messageId, emoji });
   }
 
+  async function handleDeleteChat() {
+    if (!confirm('Delete this conversation? It will be removed from your list.')) return;
+    await apiFetch(`/api/conversations/${conversationId}/hide`, { method: 'POST' });
+    router.push('/messages');
+  }
+
   return (
     <main className="flex flex-col h-full bg-[#0E1621] text-[#E9EDF0]">
       <header className="flex items-center gap-3 px-4 py-3 bg-[#17212B] border-b border-black/30 shrink-0">
         {otherUser && <Avatar name={otherUser.username} avatarUrl={otherUser.avatarUrl} size={36} />}
-        <div>
+        <div className="flex-1">
           <p className="font-medium">{otherUser?.username || 'Loading...'}</p>
           {otherUser && (
             <p className="text-xs text-[#6C7883]">
               {onlineUsers.has(otherUser.id) ? 'online' : 'offline'}
             </p>
+          )}
+        </div>
+        <div className="relative">
+          <button onClick={() => setMenuOpen((v) => !v)} className="text-[#6C7883] hover:text-white p-1">
+            <MoreVertical size={18} />
+          </button>
+          {menuOpen && (
+            <div className="absolute right-0 top-full mt-1 bg-[#242F3D] rounded-lg shadow-lg py-1 w-44 z-10">
+              <button
+                onClick={handleDeleteChat}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-black/20 text-left"
+              >
+                <Trash2 size={14} /> Delete chat
+              </button>
+            </div>
           )}
         </div>
       </header>
