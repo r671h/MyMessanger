@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { io, Socket } from 'socket.io-client';
 import { apiFetch, getApiUrl } from '../../../../src/lib/api';
+import { requestChatListRefresh } from '../../../../src/lib/chatListRefresh';
 import Avatar from '../../../../src/components/Avatar';
 import MessageBubble from '../../../../src/components/MessageBubble';
 import TypingDots from '../../../../src/components/TypingDots';
@@ -135,6 +136,7 @@ export default function GroupChatPage() {
   async function handleLeaveGroup() {
     if (!confirm('Leave this group?')) return;
     await apiFetch(`/api/groupchats/${groupId}/leave`, { method: 'POST' });
+    requestChatListRefresh();
     router.push('/messages');
   }
 
@@ -143,6 +145,7 @@ export default function GroupChatPage() {
     const memberIds = group?.participants.map((p) => p.user.id) || [];
     await apiFetch(`/api/groupchats/${groupId}`, { method: 'DELETE' });
     socketRef.current?.emit('groupchat:notify-deleted', { groupChatId: groupId, memberIds });
+    requestChatListRefresh();
     router.push('/messages');
   }
 
@@ -151,6 +154,7 @@ export default function GroupChatPage() {
     await apiFetch(`/api/groupchats/${groupId}/members/${userId}`, { method: 'DELETE' });
     socketRef.current?.emit('groupchat:notify-removed', { groupChatId: groupId, removedUserId: userId });
     setGroup((prev) => prev && { ...prev, participants: prev.participants.filter((p) => p.user.id !== userId) });
+    requestChatListRefresh();
   }
 
   return (

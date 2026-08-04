@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { io } from 'socket.io-client';
 import { Search, LogOut, Plus, UserCircle } from 'lucide-react';
 import { apiFetch } from '../../src/lib/api';
+import { onChatListRefreshRequested } from '../../src/lib/chatListRefresh';
 import Avatar from '../../src/components/Avatar';
 
 interface UserSummary {
@@ -85,8 +86,17 @@ export default function Sidebar() {
     socket.on('dm:new', () => loadChats());
     socket.on('groupchat:new', () => loadChats());
 
+    socket.on('dm:updated', () => loadChats());
+    socket.on('groupchat:updated', () => loadChats());
+
+    socket.on('groupchat:removed', () => loadChats());
+    socket.on('groupchat:deleted', () => loadChats());
+
+    const unsubscribeRefresh = onChatListRefreshRequested(() => loadChats());
+
     return () => {
       socket.disconnect();
+      unsubscribeRefresh();
     };
   }, []);
 

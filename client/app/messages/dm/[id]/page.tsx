@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { io, Socket } from 'socket.io-client';
 import { apiFetch, getApiUrl } from '../../../../src/lib/api';
+import { requestChatListRefresh } from '../../../../src/lib/chatListRefresh';
 import Avatar from '../../../../src/components/Avatar';
 import MessageBubble from '../../../../src/components/MessageBubble';
 import TypingDots from '../../../../src/components/TypingDots';
@@ -118,6 +119,7 @@ export default function DMPage() {
   async function handleDeleteChat() {
     if (!confirm('Delete this conversation? It will be removed from your list.')) return;
     await apiFetch(`/api/conversations/${conversationId}/hide`, { method: 'POST' });
+    requestChatListRefresh();
     router.push('/messages');
   }
 
