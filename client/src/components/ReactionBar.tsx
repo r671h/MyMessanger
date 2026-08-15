@@ -1,10 +1,6 @@
 'use client';
 
-import { useState } from 'react';
-import { SmilePlus } from 'lucide-react';
 import type { Reaction } from '../types/chat';
-
-const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
 
 interface ReactionBarProps {
   reactions: Reaction[];
@@ -13,9 +9,10 @@ interface ReactionBarProps {
 }
 
 export default function ReactionBar({ reactions, currentUserId, onReact }: ReactionBarProps) {
-  const [pickerOpen, setPickerOpen] = useState(false);
+  if (reactions.length === 0) return null;
 
-  // Group reactions by emoji -> count + whether the current user reacted with it
+  const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
+
   const grouped = new Map<string, { count: number; mine: boolean }>();
   reactions.forEach((r) => {
     const entry = grouped.get(r.emoji) || { count: 0, mine: false };
@@ -25,7 +22,7 @@ export default function ReactionBar({ reactions, currentUserId, onReact }: React
   });
 
   return (
-    <div className="flex items-center gap-1 flex-wrap mt-1 relative">
+    <div className="flex items-center gap-1 flex-wrap mt-1">
       {Array.from(grouped.entries()).map(([emoji, { count, mine }]) => (
         <button
           key={emoji}
@@ -38,33 +35,6 @@ export default function ReactionBar({ reactions, currentUserId, onReact }: React
           <span className="text-[#8FA3AD]">{count}</span>
         </button>
       ))}
-
-      <div className="relative">
-        <button
-          onClick={() => setPickerOpen((v) => !v)}
-          className="text-[#6C7883] hover:text-white p-0.5"
-          aria-label="Add reaction"
-        >
-          <SmilePlus size={14} />
-        </button>
-
-        {pickerOpen && (
-          <div className="absolute bottom-full mb-1 right-0 bg-[#242F3D] rounded-full px-2 py-1 flex gap-1 shadow-lg z-10 whitespace-nowrap">
-            {QUICK_EMOJIS.map((emoji) => (
-              <button
-                key={emoji}
-                onClick={() => {
-                  onReact(emoji);
-                  setPickerOpen(false);
-                }}
-                className="hover:scale-125 transition-transform text-lg"
-              >
-                {emoji}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 }

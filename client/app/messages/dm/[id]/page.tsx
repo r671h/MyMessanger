@@ -190,7 +190,9 @@ export default function DMPage() {
                 key={msg.id}
                 msg={msg}
                 isOwn={isOwn}
-                showAvatarAndName={false} // DMs don't need repeated name/avatar per message, only 2 people
+                showSenderName={false}
+                showAvatar={false}
+                showAvatarColumn={false}
                 receipt={
                   isOwn ? (
                     <span className={isRead ? 'text-[#3390EC]' : 'text-[#8FA3AD]'}>{isRead ? '✓✓' : '✓'}</span>
